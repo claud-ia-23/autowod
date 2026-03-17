@@ -139,6 +139,12 @@ export async function processReservations(
   page: Page,
   preferences: ReservationPreferences
 ): Promise<void> {
+  let booked = 0;
+  let waitlisted = 0;
+  let alreadyBooked = 0;
+  let other = 0;
+  let skipped = 0;
+
   for (let i = 0; i < availableDays; i++) {
     const weekDay = await getWeekDayFromUrl(page);
     const time = preferences[weekDay as WeekDay];
@@ -146,7 +152,23 @@ export async function processReservations(
     const result = await makeReservation(page, time);
     console.log(result.message);
 
+    if (!time) {
+      skipped++;
+    } else if (result.state === 'Entrenar' && result.success) {
+      booked++;
+    } else if (result.state === 'Avisar' && result.success) {
+      waitlisted++;
+    } else if (result.state === 'Borrar') {
+      alreadyBooked++;
+    } else {
+      other++;
+    }
+
     const isLastDay = i === availableDays - 1;
     if (!isLastDay) await goToNextDay(page);
   }
+
+  console.log(
+    `📊 Summary -> booked: ${booked}, waitlist: ${waitlisted}, already booked: ${alreadyBooked}, skipped (no time): ${skipped}, other: ${other}`
+  );
 }

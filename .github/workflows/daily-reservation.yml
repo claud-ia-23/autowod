@@ -42,15 +42,31 @@ jobs:
         with:
           version: latest
 
+      # Cache pnpm store to speed up installs
+      - name: 💾 Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-store-${{ runner.os }}-
+
       # Install project dependencies
       - name: 📚 Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
-      # Install Puppeteer's browser - this is needed for puppeteer-core
+      # Cache installed Chrome for Puppeteer
+      - name: 💾 Cache Puppeteer browser
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/puppeteer
+          key: puppeteer-cache-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            puppeteer-cache-${{ runner.os }}-
+
+      # Ensure Chrome for Puppeteer is installed (uses cache when available)
       - name: 🌐 Install Chrome for Puppeteer
-        run: |
-          pnpm add puppeteer -D
-          pnpm exec puppeteer browsers install chrome
+        run: pnpm exec puppeteer browsers install chrome
 
       # Run the booking script
       - name: 🎯 Run booking script
