@@ -31,7 +31,7 @@ async function main() {
       console.log('Starting captcha flow...');
       await solveCaptchaFlow(page, loginUrl);
     } else {
-      console.log('Skipping captcha flow in CI...');
+      console.log('Skipping captcha flow (local dev)...');
       await page.goto(loginUrl);
     }
 
@@ -48,6 +48,7 @@ async function main() {
       'Error in the script:',
       error instanceof Error ? error.message : error
     );
+    process.exitCode = 1;
   } finally {
     await browser.close();
     console.log('Script finished');

@@ -1,12 +1,5 @@
 import { Page } from 'puppeteer';
 
-export async function goToLoginPage(
-  page: Page,
-  baseUrl: string
-): Promise<void> {
-  await page.goto(`${baseUrl}/account/login.aspx`);
-}
-
 export async function login(
   page: Page,
   email: string,

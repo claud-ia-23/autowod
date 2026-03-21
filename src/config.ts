@@ -1,6 +1,6 @@
 import { ReservationPreferences } from './types';
 
-export const baseUrl = 'https://wodbuster.com';
+export const baseUrl = process.env.BASE_URL || 'https://wodbuster.com';
 
 export const email = process.env.EMAIL ?? '';
 export const password = process.env.PASSWORD ?? '';
