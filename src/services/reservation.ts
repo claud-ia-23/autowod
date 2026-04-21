@@ -7,6 +7,15 @@ import {
 } from '../types';
 import { availableDays } from '../config';
 
+export function parsePreferenceValue(value: string | null): {
+  time: string | null;
+  className: string | null;
+} {
+  if (!value) return { time: null, className: null };
+  const [time, className] = value.split('|');
+  return { time: time.trim() || null, className: className?.trim() || null };
+}
+
 export async function goToReservations(page: Page): Promise<void> {
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
@@ -19,7 +28,7 @@ export async function goToReservations(page: Page): Promise<void> {
 }
 
 export async function getReservationState(
-  reservationButton: ElementHandle<HTMLButtonElement>
+  reservationButton: ElementHandle<Element>
 ): Promise<ButtonText | null> {
   const buttonText = await reservationButton.evaluate(el => el.textContent);
   return buttonText as ButtonText | null;
@@ -40,7 +49,7 @@ export async function getWeekDayFromUrl(page: Page): Promise<string> {
   const weekDayInSeconds = url.split('=')[1];
   const weekDay = new Date(Number(weekDayInSeconds) * 1000);
   return weekDay
-    .toLocaleDateString('en-US', { weekday: 'long' })
+    .toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' })
     .toLocaleLowerCase();
 }
 
@@ -54,10 +63,39 @@ export async function getDateFromUrl(page: Page): Promise<string> {
   }).format(new Date(Number(weekDayInSeconds) * 1000));
 }
 
+async function findReservationButton(
+  page: Page,
+  reservationKey: string,
+  className: string | null
+): Promise<ElementHandle<Element> | null> {
+  const buttons = await page.$$(
+    `div[data-magellan-destination="${reservationKey}"] button`
+  );
+
+  if (buttons.length === 0) return null;
+  if (!className || buttons.length === 1) return buttons[0];
+
+  for (const button of buttons) {
+    const sectionText = await button.evaluate(el => {
+      const section = el.closest('[data-magellan-destination]');
+      return section?.textContent ?? '';
+    });
+    if (sectionText.toLowerCase().includes(className.toLowerCase())) {
+      return button;
+    }
+  }
+
+  console.log(
+    `⚠️ Class "${className}" not found at this time slot — using first available`
+  );
+  return buttons[0];
+}
+
 export async function makeReservation(
   page: Page,
-  time: string | null
+  preference: string | null
 ): Promise<ReservationResult> {
+  const { time, className } = parsePreferenceValue(preference);
   const weekDay = await getWeekDayFromUrl(page);
   const pageTitle = await page.$('.mainTitle');
   const pageTitleText = (await pageTitle?.evaluate(el => el.textContent)) ?? '';
@@ -71,8 +109,10 @@ export async function makeReservation(
   }
 
   const reservationKey = getReservationKey(time);
-  const reservationButton = await page.$(
-    `div[data-magellan-destination="${reservationKey}"] button`
+  const reservationButton = await findReservationButton(
+    page,
+    reservationKey,
+    className
   );
 
   if (!reservationButton) {

@@ -10,7 +10,31 @@ import {
   reservationsPreferences,
 } from './config';
 
+function validateConfig() {
+  const missing: string[] = [];
+  if (!email) missing.push('EMAIL');
+  if (!password) missing.push('PASSWORD');
+  if (!baseUrl) missing.push('BASE_URL');
+
+  if (missing.length > 0) {
+    console.error(
+      `❌ Missing required environment variables: ${missing.join(', ')}\n` +
+        `Make sure these are set as GitHub repository secrets (Settings → Secrets and variables → Actions).`
+    );
+    process.exit(1);
+  }
+
+  const hasAnyDay = Object.values(reservationsPreferences).some(v => v);
+  if (!hasAnyDay) {
+    console.warn(
+      `⚠️ No days configured — set at least one of MONDAY…SUNDAY to a time (e.g. MONDAY=18:00). ` +
+        `The script will run but skip all days.`
+    );
+  }
+}
+
 async function main() {
+  validateConfig();
   const browser = await launch({
     headless: isCI,
     slowMo: isCI ? 0 : 50,

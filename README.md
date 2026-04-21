@@ -61,12 +61,26 @@ Automatically book your workout sessions using GitHub Actions! No coding knowled
      - Set it to an empty value
    - Use 24-hour format (e.g., '14:30' for 2:30 PM)
 
+   **Multiple classes at the same time?** If your gym offers more than one class at the same start time (e.g. CrossFit and Endurance both at 18:00), add the class name after a `|`:
+     ```
+     MONDAY=18:00|CrossFit
+     TUESDAY=18:00|Endurance
+     ```
+   The name is matched case-insensitively. If no match is found it falls back to the first available slot at that time.
+
 4. **Optional: Configure booking window**
 
    ```
    # How many days in advance you can book (default: 7)
    AVAILABLE_DAYS=7
    ```
+
+   **Gym opens the whole week at once?** If your gym releases all reservations on a single day (e.g. every Sunday), you don't need to run the script daily. Just trigger it manually from the **Actions** tab once your gym opens slots:
+   1. Go to **Actions → Daily Reservation → Run workflow**
+   2. Set *Days to book ahead* to however many days you want (e.g. `7`)
+   3. Click **Run workflow**
+
+   This books all the days you've configured in one shot.
 
 5. **Get a 2Captcha API Key**
 
@@ -110,6 +124,15 @@ That's it! The tool will now automatically try to book your preferred sessions e
 4. **Wrong booking times?**
    - Make sure you're using 24-hour format (e.g., "17:00" not "5:00 PM")
    - Check if the day's variable is set correctly (e.g., "MONDAY=17:00")
+
+5. **Could not find Chrome error?**
+   - Make sure you are using `puppeteer` (not `puppeteer-core`) in your `package.json`
+   - The workflow installs Chrome automatically — do not remove the *Install Chrome for Puppeteer* step
+   - If you forked this repo a long time ago, update your workflow file from the latest version of this repo
+
+6. **Script runs but skips all days?**
+   - Check that your day secrets are set and not empty (e.g. `MONDAY=18:00`)
+   - The script now logs a warning at startup if no days are configured
 
 ### Need Help?
 

@@ -16,8 +16,15 @@ on:
     - cron: '31 20 * * *'
     - cron: '31 21 * * *'
 
-  # Also allows you to run it manually from the Actions tab
+  # Also allows you to run it manually from the Actions tab.
+  # Useful for gyms that open the full week on a single day — trigger once
+  # and set available_days to the number of days you want to book ahead.
   workflow_dispatch:
+    inputs:
+      available_days:
+        description: 'Days to book ahead (leave empty to use AVAILABLE_DAYS secret)'
+        required: false
+        default: ''
 
 # The tasks to run
 jobs:
@@ -90,6 +97,6 @@ jobs:
           SATURDAY: ${{ secrets.SATURDAY }}
           SUNDAY: ${{ secrets.SUNDAY }}
 
-          # Configuration
-          AVAILABLE_DAYS: ${{ secrets.AVAILABLE_DAYS }}
+          # Configuration (manual trigger input takes precedence over secret)
+          AVAILABLE_DAYS: ${{ inputs.available_days || secrets.AVAILABLE_DAYS }}
         run: pnpm start
