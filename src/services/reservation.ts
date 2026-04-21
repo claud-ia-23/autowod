@@ -277,28 +277,49 @@ export async function processReservations(
   let waitlisted = 0;
   let alreadyBooked = 0;
   let other = 0;
-  let skipped = 0;
 
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
 
+  // Build list of target dates: only days that have a preference configured,
+  // within the next availableDays window
+  const targets: { date: Date; weekDay: WeekDay; preference: string }[] = [];
   for (let i = 0; i < availableDays; i++) {
     const dayDate = new Date(today.getTime() + i * 24 * 60 * 60 * 1000);
     const weekDay = dayDate
       .toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' })
-      .toLowerCase();
-    const dateLabel = await getDateLabel(dayDate);
+      .toLowerCase() as WeekDay;
+    const preference = preferences[weekDay];
+    if (preference) {
+      targets.push({ date: dayDate, weekDay, preference });
+    }
+  }
 
-    console.log(`🗓️ Checking ${weekDay} ${dateLabel}...`);
+  if (targets.length === 0) {
+    console.log('⚠️ No configured days found in the next ' + availableDays + ' days');
+    writeJobSummary(dayResults, { booked, waitlisted, alreadyBooked, skipped: 0, other });
+    return;
+  }
 
-    const preference = preferences[weekDay as WeekDay];
+  for (let i = 0; i < targets.length; i++) {
+    const { date, weekDay, preference } = targets[i];
+    const dateLabel = await getDateLabel(date);
+    const ts = Math.floor(date.getTime() / 1000);
+
+    // Navigate directly to this day's URL
+    const currentUrl = page.url();
+    const currentDomain = new URL(currentUrl).origin;
+    const targetUrl = `${currentDomain}/athlete/reservas.aspx?t=${ts}`;
+    console.log(`🗓️ Navigating to ${weekDay} ${dateLabel}...`);
+    await page.goto(targetUrl);
+    await page.waitForNetworkIdle({ timeout: 5000 }).catch(() => {});
+    await clickCurrentDay(page);
+
     const result = await makeReservation(page, preference, weekDay, dateLabel);
     dayResults.push({ weekDay, result });
     console.log(result.message);
 
-    if (!preference) {
-      skipped++;
-    } else if (result.state === 'Entrenar' && result.success) {
+    if (result.state === 'Entrenar' && result.success) {
       booked++;
     } else if (result.state === 'Avisar' && result.success) {
       waitlisted++;
@@ -307,14 +328,11 @@ export async function processReservations(
     } else {
       other++;
     }
-
-    const isLastDay = i === availableDays - 1;
-    if (!isLastDay) await goToNextDay(page);
   }
 
   console.log(
-    `📊 Summary -> booked: ${booked}, waitlist: ${waitlisted}, already booked: ${alreadyBooked}, skipped (no time): ${skipped}, other: ${other}`
+    `📊 Summary -> booked: ${booked}, waitlist: ${waitlisted}, already booked: ${alreadyBooked}, skipped (no time): 0, other: ${other}`
   );
 
-  writeJobSummary(dayResults, { booked, waitlisted, alreadyBooked, skipped, other });
+  writeJobSummary(dayResults, { booked, waitlisted, alreadyBooked, skipped: 0, other });
 }
