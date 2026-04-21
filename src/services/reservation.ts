@@ -21,10 +21,8 @@ export async function goToReservations(page: Page): Promise<void> {
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
   const todayInSeconds = Math.floor(today.getTime() / 1000);
-
   const currentUrl = page.url();
   const currentDomain = new URL(currentUrl).origin;
-
   await page.goto(`${currentDomain}/athlete/reservas.aspx?t=${todayInSeconds}`);
   await page.waitForNetworkIdle({ timeout: 5000 }).catch(() => {});
 }
@@ -36,7 +34,6 @@ export async function getReservationState(
     const span = el.querySelector('span');
     const text = (span?.textContent ?? el.textContent ?? '').trim();
     const normalized = text.replace(/\s*\(\d+\)$/, '').trim();
-    // Normalizar textos del gimnasio al tipo ButtonText
     if (normalized === 'Reservar') return 'Entrenar';
     if (normalized === 'Eliminar') return 'Borrar';
     return normalized;
@@ -68,51 +65,55 @@ async function findReservationButton(
   reservationKey: string,
   className: string | null
 ): Promise<ElementHandle<Element> | null> {
-  const buttonIndices = await page.evaluate((key: string, cls: string | null) => {
+  const debugInfo = await page.evaluate((key: string) => {
+    const anchors = Array.from(document.querySelectorAll('.horaAnchor')).map(el => (el as HTMLElement).id);
     const anchor = document.getElementById(key);
-    // DEBUG: log what we find
-    const allAnchors = Array.from(document.querySelectorAll('.horaAnchor')).map(el => (el as HTMLElement).id);
-    const allClases = Array.from(document.querySelectorAll('[id^="clase"]')).map(el => (el as HTMLElement).id);
-    if (!anchor) return { error: `anchor ${key} not found. Available anchors: ${allAnchors.join(',')}`, results: [], clases: allClases };
+    return {
+      anchorFound: !!anchor,
+      availableAnchors: anchors,
+    };
+  }, reservationKey);
 
-    const container = anchor.parentElement;
-    if (!container) return { error: 'no parent', results: [], clases: allClases };
+  console.log(`🔎 DEBUG anchor ${reservationKey} found: ${debugInfo.anchorFound}. Available: ${debugInfo.availableAnchors.join(',')}`);
 
-    const results: { index: number; name: string }[] = [];
+  if (!debugInfo.anchorFound) return null;
+
+  const buttonData = await page.evaluate((key: string) => {
+    const anchor = document.getElementById(key)!;
+    const container = anchor.parentElement!;
     const allButtons = Array.from(document.querySelectorAll('button'));
-
     const claseDivs = Array.from(container.querySelectorAll('[id^="clase"]'));
-    for (const claseDiv of claseDivs) {
+
+    return claseDivs.map(claseDiv => {
       const nameEl = claseDiv.querySelector('h3.entrenamiento');
       const btn = claseDiv.querySelector('button.entrenar, button.avisar, button.borrar');
-      if (btn) {
-        results.push({
-          index: allButtons.indexOf(btn as HTMLButtonElement),
-          name: nameEl?.textContent?.trim() ?? '',
-        });
-      }
-    }
-    return { error: null, results, clases: allClases };
-  }, reservationKey, className);
+      return {
+        name: nameEl?.textContent?.trim() ?? '',
+        btnIndex: btn ? allButtons.indexOf(btn as HTMLButtonElement) : -1,
+      };
+    }).filter(item => item.btnIndex !== -1);
+  }, reservationKey);
 
-  if (buttonIndices.length === 0) return null;
+  console.log(`🔎 DEBUG buttons found in container: ${JSON.stringify(buttonData)}`);
+
+  if (buttonData.length === 0) return null;
 
   const allButtons = await page.$$('button');
 
-  if (!className || buttonIndices.length === 1) {
-    return allButtons[buttonIndices[0].index] ?? null;
+  if (!className || buttonData.length === 1) {
+    return allButtons[buttonData[0].btnIndex] ?? null;
   }
 
-  const match = buttonIndices.find(b =>
+  const match = buttonData.find(b =>
     b.name.toLowerCase().includes(className.toLowerCase())
   );
 
   if (!match) {
     console.log(`⚠️ Class "${className}" not found at this time slot — using first available`);
-    return allButtons[buttonIndices[0].index] ?? null;
+    return allButtons[buttonData[0].btnIndex] ?? null;
   }
 
-  return allButtons[match.index] ?? null;
+  return allButtons[match.btnIndex] ?? null;
 }
 
 export async function makeReservation(
@@ -134,11 +135,7 @@ export async function makeReservation(
   }
 
   const reservationKey = getReservationKey(time);
-  const reservationButton = await findReservationButton(
-    page,
-    reservationKey,
-    className
-  );
+  const reservationButton = await findReservationButton(page, reservationKey, className);
 
   if (!reservationButton) {
     return {
@@ -297,11 +294,5 @@ export async function processReservations(
     `📊 Summary -> booked: ${booked}, waitlist: ${waitlisted}, already booked: ${alreadyBooked}, skipped (no time): ${skipped}, other: ${other}`
   );
 
-  writeJobSummary(dayResults, {
-    booked,
-    waitlisted,
-    alreadyBooked,
-    skipped,
-    other,
-  });
+  writeJobSummary(dayResults, { booked, waitlisted, alreadyBooked, skipped, other });
 }
