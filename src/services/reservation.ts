@@ -32,14 +32,16 @@ export async function goToReservations(page: Page): Promise<void> {
 export async function getReservationState(
   reservationButton: ElementHandle<Element>
 ): Promise<ButtonText | null> {
-  // El texto real está en el <span> dentro del botón, y puede tener "(N)" al final
-  const buttonText = await reservationButton.evaluate(el => {
+  const rawText = await reservationButton.evaluate(el => {
     const span = el.querySelector('span');
     const text = (span?.textContent ?? el.textContent ?? '').trim();
-    // Normalizar: "Avisar (1)" → "Avisar"
-    return text.replace(/\s*\(\d+\)$/, '').trim();
+    const normalized = text.replace(/\s*\(\d+\)$/, '').trim();
+    // Normalizar textos del gimnasio al tipo ButtonText
+    if (normalized === 'Reservar') return 'Entrenar';
+    if (normalized === 'Eliminar') return 'Borrar';
+    return normalized;
   });
-  return buttonText as ButtonText | null;
+  return rawText as ButtonText | null;
 }
 
 export function getReservationKey(time: string): string {
@@ -66,23 +68,24 @@ async function findReservationButton(
   reservationKey: string,
   className: string | null
 ): Promise<ElementHandle<Element> | null> {
-  // Tu gimnasio usa <div id="h200000" class="horaAnchor"> como ancla,
-  // y las clases son divs hermanos siguientes hasta la próxima ancla.
-  const buttons = await page.evaluate((key, cls) => {
+  const buttonIndices = await page.evaluate((key: string, cls: string | null) => {
     const anchor = document.getElementById(key);
     if (!anchor) return [];
 
     const results: { index: number; name: string }[] = [];
+    const allButtons = Array.from(document.querySelectorAll('button'));
     let el = anchor.nextElementSibling;
 
     while (el && !el.classList.contains('horaAnchor')) {
-      const claseDiv = el.id.startsWith('clase') ? el : el.querySelector('[id^="clase"]');
+      const claseDiv = (el.id && el.id.startsWith('clase'))
+        ? el
+        : el.querySelector('[id^="clase"]');
       if (claseDiv) {
         const nameEl = claseDiv.querySelector('h3.entrenamiento');
         const btn = claseDiv.querySelector('button.entrenar, button.avisar, button.borrar');
         if (btn) {
           results.push({
-            index: Array.from(document.querySelectorAll('button')).indexOf(btn as HTMLButtonElement),
+            index: allButtons.indexOf(btn as HTMLButtonElement),
             name: nameEl?.textContent?.trim() ?? '',
           });
         }
@@ -92,22 +95,21 @@ async function findReservationButton(
     return results;
   }, reservationKey, className);
 
-  if (buttons.length === 0) return null;
+  if (buttonIndices.length === 0) return null;
 
   const allButtons = await page.$$('button');
 
-  if (!className || buttons.length === 1) {
-    return allButtons[buttons[0].index] ?? null;
+  if (!className || buttonIndices.length === 1) {
+    return allButtons[buttonIndices[0].index] ?? null;
   }
 
-  // Buscar por nombre de clase
-  const match = buttons.find(b =>
+  const match = buttonIndices.find(b =>
     b.name.toLowerCase().includes(className.toLowerCase())
   );
 
   if (!match) {
     console.log(`⚠️ Class "${className}" not found at this time slot — using first available`);
-    return allButtons[buttons[0].index] ?? null;
+    return allButtons[buttonIndices[0].index] ?? null;
   }
 
   return allButtons[match.index] ?? null;
@@ -167,7 +169,6 @@ export async function makeReservation(
   };
 
   switch (state) {
-    case 'Reservar':
     case 'Entrenar':
       await reservationButton.click();
       await page.waitForNetworkIdle({ timeout: 5000 }).catch(() => {});
@@ -187,7 +188,6 @@ export async function makeReservation(
       result.success = false;
       break;
     case 'Borrar':
-    case 'Eliminar':
       result.message = `ℹ️ ${pageTitleText} - You're already booked`;
       result.success = false;
       break;
@@ -260,12 +260,10 @@ export async function processReservations(
   let other = 0;
   let skipped = 0;
 
-  // Calculate today in UTC to avoid timezone issues
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
 
   for (let i = 0; i < availableDays; i++) {
-    // Calculate each day's date directly — no longer read from URL
     const dayDate = new Date(today.getTime() + i * 24 * 60 * 60 * 1000);
     const weekDay = dayDate
       .toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' })
@@ -295,7 +293,7 @@ export async function processReservations(
     if (!isLastDay) await goToNextDay(page);
   }
 
-  console.log(	
+  console.log(
     `📊 Summary -> booked: ${booked}, waitlist: ${waitlisted}, already booked: ${alreadyBooked}, skipped (no time): ${skipped}, other: ${other}`
   );
 
