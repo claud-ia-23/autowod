@@ -28,7 +28,10 @@ async function waitForCaptchaAndSolve(page: Page): Promise<void> {
             window.cfCallback(token);
           }, res.data);
 
-          await page.waitForNetworkIdle();
+          // WODBuster keeps long-polling connections open, so waitForNetworkIdle
+          // would hang indefinitely. A short timeout is enough for the callback
+          // to be processed before we proceed to the login form.
+          await page.waitForNetworkIdle({ timeout: 5000 }).catch(() => {});
 
           clearTimeout(timeout);
           page.off('console', handleConsole);
