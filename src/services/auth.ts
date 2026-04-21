@@ -17,6 +17,6 @@ export async function login(
   const secondButton = await page.$(secondButtonSelector);
   if (secondButton) {
     await secondButton.click();
-    await page.waitForNetworkIdle();
+    await page.waitForNetworkIdle({ timeout: 5000 }).catch(() => {});
   }
 }
