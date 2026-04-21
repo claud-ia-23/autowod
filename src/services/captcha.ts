@@ -5,20 +5,10 @@ import { join } from 'path';
 
 const solver = new Solver(process.env.TWO_CAPTCHA_API_KEY ?? '');
 
-export async function solveCaptchaFlow(page: Page, url: string): Promise<void> {
-  // First inject the interceptor script
-  const preloadFile = readFileSync(
-    join(process.cwd(), 'src/scripts/captcha-interceptor.js'),
-    'utf8'
-  );
-  await page.evaluateOnNewDocument(preloadFile);
-
-  // Navigate to the page where captcha appears
-  await page.goto(url);
-
-  // Wait for the captcha to be solved
+async function waitForCaptchaAndSolve(page: Page): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const timeout = setTimeout(() => {
+      page.off('console', handleConsole);
       reject(new Error('Captcha solution timeout after 60 seconds'));
     }, 60000);
 
@@ -38,7 +28,6 @@ export async function solveCaptchaFlow(page: Page, url: string): Promise<void> {
             window.cfCallback(token);
           }, res.data);
 
-          // Wait for the callback to complete and page to stabilize
           await page.waitForNetworkIdle();
 
           clearTimeout(timeout);
@@ -54,4 +43,30 @@ export async function solveCaptchaFlow(page: Page, url: string): Promise<void> {
 
     page.on('console', handleConsole);
   });
+}
+
+export async function solveCaptchaFlow(
+  page: Page,
+  url: string,
+  maxAttempts = 3
+): Promise<void> {
+  const preloadFile = readFileSync(
+    join(process.cwd(), 'src/scripts/captcha-interceptor.js'),
+    'utf8'
+  );
+  await page.evaluateOnNewDocument(preloadFile);
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      await page.goto(url);
+      await waitForCaptchaAndSolve(page);
+      return;
+    } catch (e) {
+      if (attempt === maxAttempts) throw e;
+      console.log(
+        `⚠️ Captcha attempt ${attempt}/${maxAttempts} failed: ${e instanceof Error ? e.message : e}. Retrying in 5 seconds...`
+      );
+      await new Promise(r => setTimeout(r, 5000));
+    }
+  }
 }
