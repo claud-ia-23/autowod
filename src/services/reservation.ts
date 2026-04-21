@@ -72,25 +72,23 @@ async function findReservationButton(
     const anchor = document.getElementById(key);
     if (!anchor) return [];
 
+    // Las clases son hijos del mismo contenedor padre que el horaAnchor
+    const container = anchor.parentElement;
+    if (!container) return [];
+
     const results: { index: number; name: string }[] = [];
     const allButtons = Array.from(document.querySelectorAll('button'));
-    let el = anchor.nextElementSibling;
 
-    while (el && !el.classList.contains('horaAnchor')) {
-      const claseDiv = (el.id && el.id.startsWith('clase'))
-        ? el
-        : el.querySelector('[id^="clase"]');
-      if (claseDiv) {
-        const nameEl = claseDiv.querySelector('h3.entrenamiento');
-        const btn = claseDiv.querySelector('button.entrenar, button.avisar, button.borrar');
-        if (btn) {
-          results.push({
-            index: allButtons.indexOf(btn as HTMLButtonElement),
-            name: nameEl?.textContent?.trim() ?? '',
-          });
-        }
+    const claseDivs = Array.from(container.querySelectorAll('[id^="clase"]'));
+    for (const claseDiv of claseDivs) {
+      const nameEl = claseDiv.querySelector('h3.entrenamiento');
+      const btn = claseDiv.querySelector('button.entrenar, button.avisar, button.borrar');
+      if (btn) {
+        results.push({
+          index: allButtons.indexOf(btn as HTMLButtonElement),
+          name: nameEl?.textContent?.trim() ?? '',
+        });
       }
-      el = el.nextElementSibling;
     }
     return results;
   }, reservationKey, className);
