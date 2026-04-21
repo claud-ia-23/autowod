@@ -74,13 +74,13 @@ async function findReservationButton(
     const allAnchors = Array.from(document.querySelectorAll('.horaAnchor')).map(el => (el as HTMLElement).id);
     const allClases = Array.from(document.querySelectorAll('[id^="clase"]')).map(el => (el as HTMLElement).id);
     if (!anchor) return { error: `anchor ${key} not found. Available anchors: ${allAnchors.join(',')}`, results: [], clases: allClases };
- 
+
     const container = anchor.parentElement;
     if (!container) return { error: 'no parent', results: [], clases: allClases };
- 
+
     const results: { index: number; name: string }[] = [];
     const allButtons = Array.from(document.querySelectorAll('button'));
- 
+
     const claseDivs = Array.from(container.querySelectorAll('[id^="clase"]'));
     for (const claseDiv of claseDivs) {
       const nameEl = claseDiv.querySelector('h3.entrenamiento');
@@ -94,24 +94,24 @@ async function findReservationButton(
     }
     return { error: null, results, clases: allClases };
   }, reservationKey, className);
- 
+
   if (buttonIndices.length === 0) return null;
- 
+
   const allButtons = await page.$$('button');
- 
+
   if (!className || buttonIndices.length === 1) {
     return allButtons[buttonIndices[0].index] ?? null;
   }
- 
+
   const match = buttonIndices.find(b =>
     b.name.toLowerCase().includes(className.toLowerCase())
   );
- 
+
   if (!match) {
     console.log(`⚠️ Class "${className}" not found at this time slot — using first available`);
     return allButtons[buttonIndices[0].index] ?? null;
   }
- 
+
   return allButtons[match.index] ?? null;
 }
 
