@@ -39,10 +39,10 @@ Secrets are for sensitive information like your password. GitHub keeps them encr
 
 ### 3. Set your weekly schedule
 
-Your schedule uses **Variables** — unlike secrets, you can see and edit them at any time without deleting and recreating them.
+Your schedule uses **repository variables** — unlike secrets, you can see and edit them at any time without deleting and recreating them. These are NOT environment variables on your computer; they live on GitHub, in your repository settings.
 
 1. Still in **Settings → Secrets and variables → Actions**
-2. Click the **Variables** tab
+2. Click the **Variables** tab (not the Secrets tab)
 3. Click **New repository variable** and add a variable for each day you want to book
 
 | Name | Value example | Meaning |
@@ -100,7 +100,7 @@ A green checkmark means the run completed. Check the summary card to see which s
 
 ## Changing your schedule
 
-Just go to **Settings → Secrets and variables → Actions → Variables tab**, click the variable you want to change (e.g. `MONDAY`), and update the value. The next run will pick it up automatically.
+Go to **Settings → Secrets and variables → Actions → Variables tab**, click the repository variable you want to change (e.g. `MONDAY`), update the value, and save. The next run will pick it up automatically.
 
 ---
 
@@ -124,7 +124,7 @@ This books everything in one go.
 - Most common cause: a secret is missing or has a typo — double-check `EMAIL` and `PASSWORD`
 
 **All days show "Skipped" in the summary**
-- You haven't added any day variables yet — go to the Variables tab and add at least one (e.g. `MONDAY=18:00`)
+- You haven't added any repository variables yet — go to **Settings → Secrets and variables → Actions → Variables tab** and add at least one (e.g. name: `MONDAY`, value: `18:00`)
 
 **"Could not find Chrome" error**
 - Make sure your fork is up to date with the latest version of this repository
