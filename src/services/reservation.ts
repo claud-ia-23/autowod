@@ -26,7 +26,7 @@ export async function goToReservations(page: Page): Promise<void> {
   const currentDomain = new URL(currentUrl).origin;
 
   await page.goto(`${currentDomain}/athlete/reservas.aspx?t=${todayInSeconds}`);
-  await page.waitForNetworkIdle({ timeout: 5000 }).catch(() => {});  // añade esto
+  await page.waitForNetworkIdle({ timeout: 5000 }).catch(() => {});
 }
 
 export async function getReservationState(
@@ -46,23 +46,13 @@ export async function goToNextDay(page: Page): Promise<void> {
   await page.waitForNetworkIdle({ timeout: 5000 }).catch(() => {});
 }
 
-export async function getWeekDayFromUrl(page: Page): Promise<string> {
-  const url = await page.url();
-  const weekDayInSeconds = url.split('=')[1];
-  const weekDay = new Date(Number(weekDayInSeconds) * 1000);
-  return weekDay
-    .toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' })
-    .toLocaleLowerCase();
-}
-
-export async function getDateFromUrl(page: Page): Promise<string> {
-  const url = await page.url();
-  const weekDayInSeconds = url.split('=')[1];
+export async function getDateLabel(date: Date): Promise<string> {
   return Intl.DateTimeFormat('en-US', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
-  }).format(new Date(Number(weekDayInSeconds) * 1000));
+    timeZone: 'UTC',
+  }).format(date);
 }
 
 async function findReservationButton(
@@ -95,10 +85,11 @@ async function findReservationButton(
 
 export async function makeReservation(
   page: Page,
-  preference: string | null
+  preference: string | null,
+  weekDay: string,
+  dateLabel: string
 ): Promise<ReservationResult> {
   const { time, className } = parsePreferenceValue(preference);
-  const weekDay = await getWeekDayFromUrl(page);
   const pageTitle = await page.$('.mainTitle');
   const pageTitleText = (await pageTitle?.evaluate(el => el.textContent)) ?? '';
 
@@ -120,9 +111,7 @@ export async function makeReservation(
   if (!reservationButton) {
     return {
       success: false,
-      message: `🔍 No reservation slot found for ${await getDateFromUrl(
-        page
-      )} at ${time}`,
+      message: `🔍 No reservation slot found for ${dateLabel} at ${time}`,
       weekDay,
       time,
     };
@@ -133,9 +122,7 @@ export async function makeReservation(
   if (!state) {
     return {
       success: false,
-      message: `⚠️ Unable to determine reservation status for ${await getDateFromUrl(
-        page
-      )} at ${time}`,
+      message: `⚠️ Unable to determine reservation status for ${dateLabel} at ${time}`,
       weekDay,
       time,
     };
@@ -235,20 +222,28 @@ export async function processReservations(
   preferences: ReservationPreferences
 ): Promise<void> {
   const dayResults: Array<{ weekDay: string; result: ReservationResult }> = [];
-  let booked = 0, waitlisted = 0, alreadyBooked = 0, other = 0, skipped = 0;
+  let booked = 0;
+  let waitlisted = 0;
+  let alreadyBooked = 0;
+  let other = 0;
+  let skipped = 0;
 
+  // Calculate today in UTC to avoid timezone issues
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
 
   for (let i = 0; i < availableDays; i++) {
-    // Calcular el día directamente, sin depender de la URL
+    // Calculate each day's date directly — no longer read from URL
     const dayDate = new Date(today.getTime() + i * 24 * 60 * 60 * 1000);
     const weekDay = dayDate
       .toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' })
       .toLowerCase();
+    const dateLabel = await getDateLabel(dayDate);
+
+    console.log(`🗓️ Checking ${weekDay} ${dateLabel}...`);
 
     const preference = preferences[weekDay as WeekDay];
-    const result = await makeReservation(page, preference, weekDay);
+    const result = await makeReservation(page, preference, weekDay, dateLabel);
     dayResults.push({ weekDay, result });
     console.log(result.message);
 
@@ -272,5 +267,11 @@ export async function processReservations(
     `📊 Summary -> booked: ${booked}, waitlist: ${waitlisted}, already booked: ${alreadyBooked}, skipped (no time): ${skipped}, other: ${other}`
   );
 
-  writeJobSummary(dayResults, { booked, waitlisted, alreadyBooked, skipped, other });
+  writeJobSummary(dayResults, {
+    booked,
+    waitlisted,
+    alreadyBooked,
+    skipped,
+    other,
+  });
 }
