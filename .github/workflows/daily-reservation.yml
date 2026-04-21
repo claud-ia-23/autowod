@@ -1,37 +1,36 @@
 name: Daily Reservation
 run-name: "🏋️ AutoWOD – ${{ github.event_name == 'workflow_dispatch' && 'Manual run' || 'Daily schedule' }}"
-
 on:
   schedule:
-    # Runs twice to cover both Spain summer (CEST, UTC+2) and winter (CET, UTC+1) time.
-    # One of these will always land around 22:30 local time.
     - cron: '58 12 * * 4'
     - cron: '59 12 * * 4'
-    - cron: '0 13 * * 4'
-    
-  # Run it manually from the Actions tab whenever you need to.
-  # Useful when your gym opens the whole week at once — trigger once and
-  # set "Days to book ahead" to the number of days you want to cover.
   workflow_dispatch:
     inputs:
       available_days:
         description: 'Days to book ahead (leave empty to use the AVAILABLE_DAYS variable)'
         required: false
         default: ''
-
-# Prevent two runs from overlapping and trying to book the same sessions.
 concurrency:
   group: reservation
   cancel-in-progress: false
-
 jobs:
   book-session:
     name: Book Workout Session
     runs-on: ubuntu-latest
-
     steps:
       - name: 📥 Get latest code
         uses: actions/checkout@v4
+
+      - name: ⏱️ Sleep before first attempt
+        if: github.event_name == 'schedule'
+        run: |
+          MINUTE=$(date +"%M")
+          if [ "$MINUTE" = "58" ]; then
+            echo "Run at :58 — sleeping 15s → will start at 14:58:15"
+            sleep 15
+          else
+            echo "Run at :59 — no sleep → will start at 14:59:00"
+          fi
 
       - name: 🔧 Set up Node.js
         uses: actions/setup-node@v4
@@ -67,12 +66,10 @@ jobs:
 
       - name: 🎯 Run booking script
         env:
-          # Secrets (sensitive — set in Settings → Secrets and variables → Actions → Secrets tab)
           EMAIL: ${{ secrets.EMAIL }}
           PASSWORD: ${{ secrets.PASSWORD }}
           TWO_CAPTCHA_API_KEY: ${{ secrets.TWO_CAPTCHA_API_KEY }}
-
-          # Variables (set in Settings → Secrets and variables → Actions → Variables tab)
+          BASE_URL: ${{ secrets.BASE_URL }}
           MONDAY: ${{ vars.MONDAY }}
           TUESDAY: ${{ vars.TUESDAY }}
           WEDNESDAY: ${{ vars.WEDNESDAY }}
@@ -82,3 +79,36 @@ jobs:
           SUNDAY: ${{ vars.SUNDAY }}
           AVAILABLE_DAYS: ${{ inputs.available_days || vars.AVAILABLE_DAYS }}
         run: pnpm start
+
+      - name: ⏱️ Sleep 15s before second attempt (solo en el cron de :59)
+        if: github.event_name == 'schedule'
+        run: |
+          MINUTE=$(date +"%M")
+          if [ "$MINUTE" = "59" ]; then
+            echo "Sleeping 15s → second attempt at 14:59:15"
+            sleep 15
+          else
+            echo "Cron :58 — no second attempt"
+            exit 0
+          fi
+
+      - name: 🎯 Run booking script (segundo intento a 14:59:15)
+        if: github.event_name == 'schedule'
+        env:
+          EMAIL: ${{ secrets.EMAIL }}
+          PASSWORD: ${{ secrets.PASSWORD }}
+          TWO_CAPTCHA_API_KEY: ${{ secrets.TWO_CAPTCHA_API_KEY }}
+          BASE_URL: ${{ secrets.BASE_URL }}
+          MONDAY: ${{ vars.MONDAY }}
+          TUESDAY: ${{ vars.TUESDAY }}
+          WEDNESDAY: ${{ vars.WEDNESDAY }}
+          THURSDAY: ${{ vars.THURSDAY }}
+          FRIDAY: ${{ vars.FRIDAY }}
+          SATURDAY: ${{ vars.SATURDAY }}
+          SUNDAY: ${{ vars.SUNDAY }}
+          AVAILABLE_DAYS: ${{ inputs.available_days || vars.AVAILABLE_DAYS }}
+        run: |
+          MINUTE=$(date +"%M")
+          if [ "$MINUTE" = "59" ]; then
+            pnpm start
+          fi
