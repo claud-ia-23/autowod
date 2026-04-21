@@ -295,7 +295,7 @@ export async function processReservations(
     if (!isLastDay) await goToNextDay(page);
   }
 
-  console.log(
+  console.log(	
     `📊 Summary -> booked: ${booked}, waitlist: ${waitlisted}, already booked: ${alreadyBooked}, skipped (no time): ${skipped}, other: ${other}`
   );
 
