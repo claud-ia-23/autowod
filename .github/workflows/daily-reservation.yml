@@ -1,48 +1,47 @@
-# This workflow runs every day to book your workout sessions
 name: Daily Reservation
+run-name: "🏋️ AutoWOD – ${{ github.event_name == 'workflow_dispatch' && 'Manual run' || 'Daily schedule' }}"
 
-# When does this run?
 on:
   schedule:
-    # We run twice to roughly hit 22:30 in Spain all year:
-    # - 20:31 UTC:
-    #     * 21:31 in winter (CET, UTC+1)
-    #     * 22:31 in summer (CEST, UTC+2)
-    # - 21:31 UTC:
-    #     * 22:31 in winter (CET, UTC+1)
-    #     * 23:31 in summer (CEST, UTC+2)
-    # This guarantees at least one run around 22:30 local time in both seasons,
-    # at the cost of one extra daily run.
+    # Runs twice to cover both Spain summer (CEST, UTC+2) and winter (CET, UTC+1) time.
+    # One of these will always land around 22:30 local time.
     - cron: '31 20 * * *'
     - cron: '31 21 * * *'
 
-  # Also allows you to run it manually from the Actions tab
+  # Run it manually from the Actions tab whenever you need to.
+  # Useful when your gym opens the whole week at once — trigger once and
+  # set "Days to book ahead" to the number of days you want to cover.
   workflow_dispatch:
+    inputs:
+      available_days:
+        description: 'Days to book ahead (leave empty to use the AVAILABLE_DAYS variable)'
+        required: false
+        default: ''
 
-# The tasks to run
+# Prevent two runs from overlapping and trying to book the same sessions.
+concurrency:
+  group: reservation
+  cancel-in-progress: false
+
 jobs:
   book-session:
     name: Book Workout Session
     runs-on: ubuntu-latest
 
     steps:
-      # Get a copy of your code
       - name: 📥 Get latest code
         uses: actions/checkout@v4
 
-      # Set up Node.js environment
       - name: 🔧 Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      # Install pnpm (package manager)
       - name: 📦 Install pnpm
         uses: pnpm/action-setup@v4
         with:
           version: latest
 
-      # Cache pnpm store to speed up installs
       - name: 💾 Cache pnpm store
         uses: actions/cache@v4
         with:
@@ -51,11 +50,9 @@ jobs:
           restore-keys: |
             pnpm-store-${{ runner.os }}-
 
-      # Install project dependencies
       - name: 📚 Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Cache installed Chrome for Puppeteer
       - name: 💾 Cache Puppeteer browser
         uses: actions/cache@v4
         with:
@@ -64,32 +61,23 @@ jobs:
           restore-keys: |
             puppeteer-cache-${{ runner.os }}-
 
-      # Ensure Chrome for Puppeteer is installed (uses cache when available)
       - name: 🌐 Install Chrome for Puppeteer
         run: pnpm exec puppeteer browsers install chrome
 
-      # Run the booking script
       - name: 🎯 Run booking script
         env:
-          # Authentication
+          # Secrets (sensitive — set in Settings → Secrets and variables → Actions → Secrets tab)
           EMAIL: ${{ secrets.EMAIL }}
           PASSWORD: ${{ secrets.PASSWORD }}
-
-          # Target Website
-          BASE_URL: ${{ secrets.BASE_URL }}
-
-          # 2Captcha API Key
           TWO_CAPTCHA_API_KEY: ${{ secrets.TWO_CAPTCHA_API_KEY }}
 
-          # Schedule
-          MONDAY: ${{ secrets.MONDAY }}
-          TUESDAY: ${{ secrets.TUESDAY }}
-          WEDNESDAY: ${{ secrets.WEDNESDAY }}
-          THURSDAY: ${{ secrets.THURSDAY }}
-          FRIDAY: ${{ secrets.FRIDAY }}
-          SATURDAY: ${{ secrets.SATURDAY }}
-          SUNDAY: ${{ secrets.SUNDAY }}
-
-          # Configuration
-          AVAILABLE_DAYS: ${{ secrets.AVAILABLE_DAYS }}
+          # Variables (set in Settings → Secrets and variables → Actions → Variables tab)
+          MONDAY: ${{ vars.MONDAY }}
+          TUESDAY: ${{ vars.TUESDAY }}
+          WEDNESDAY: ${{ vars.WEDNESDAY }}
+          THURSDAY: ${{ vars.THURSDAY }}
+          FRIDAY: ${{ vars.FRIDAY }}
+          SATURDAY: ${{ vars.SATURDAY }}
+          SUNDAY: ${{ vars.SUNDAY }}
+          AVAILABLE_DAYS: ${{ inputs.available_days || vars.AVAILABLE_DAYS }}
         run: pnpm start
