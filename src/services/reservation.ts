@@ -26,6 +26,7 @@ export async function goToReservations(page: Page): Promise<void> {
   const currentDomain = new URL(currentUrl).origin;
 
   await page.goto(`${currentDomain}/athlete/reservas.aspx?t=${todayInSeconds}`);
+  await page.waitForNetworkIdle({ timeout: 5000 }).catch(() => {});  // añade esto
 }
 
 export async function getReservationState(
@@ -234,17 +235,20 @@ export async function processReservations(
   preferences: ReservationPreferences
 ): Promise<void> {
   const dayResults: Array<{ weekDay: string; result: ReservationResult }> = [];
-  let booked = 0;
-  let waitlisted = 0;
-  let alreadyBooked = 0;
-  let other = 0;
-  let skipped = 0;
+  let booked = 0, waitlisted = 0, alreadyBooked = 0, other = 0, skipped = 0;
+
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
 
   for (let i = 0; i < availableDays; i++) {
-    const weekDay = await getWeekDayFromUrl(page);
-    const preference = preferences[weekDay as WeekDay];
+    // Calcular el día directamente, sin depender de la URL
+    const dayDate = new Date(today.getTime() + i * 24 * 60 * 60 * 1000);
+    const weekDay = dayDate
+      .toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' })
+      .toLowerCase();
 
-    const result = await makeReservation(page, preference);
+    const preference = preferences[weekDay as WeekDay];
+    const result = await makeReservation(page, preference, weekDay);
     dayResults.push({ weekDay, result });
     console.log(result.message);
 
