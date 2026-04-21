@@ -38,7 +38,7 @@ async function clickCurrentDay(page: Page): Promise<void> {
     if (first) { first.click(); return 'first'; }
     return null;
   });
-  console.log(`🔎 DEBUG clicked day: ${clicked}`);
+
   await page.waitForNetworkIdle({ timeout: 5000 }).catch(() => {});
 }
 
@@ -96,8 +96,6 @@ async function findReservationButton(
     };
   }, reservationKey);
 
-  console.log(`🔎 DEBUG anchor ${reservationKey} found: ${debugInfo.anchorFound}. Available: ${debugInfo.availableAnchors.join(',')}`);
-
   if (!debugInfo.anchorFound) return null;
 
   const buttonData = await page.evaluate((key: string) => {
@@ -115,8 +113,6 @@ async function findReservationButton(
       };
     }).filter(item => item.btnIndex !== -1);
   }, reservationKey);
-
-  console.log(`🔎 DEBUG buttons found in container: ${JSON.stringify(buttonData)}`);
 
   if (buttonData.length === 0) return null;
 
