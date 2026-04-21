@@ -1,169 +1,157 @@
 # AutoWOD
 
-Automatically book your workout sessions using GitHub Actions! No coding knowledge required. This tool runs in the cloud and handles the booking process for you.
+[![Daily Reservation](https://github.com/RubenGlez/autowod/actions/workflows/daily-reservation.yml/badge.svg)](https://github.com/RubenGlez/autowod/actions/workflows/daily-reservation.yml)
 
-> **Important**: This tool is specifically designed for gyms using the [WODBuster](https://wodbuster.com/) platform. It will not work with other booking systems.
+Automatically books your workout sessions on [WODBuster](https://wodbuster.com/) — the booking platform used by many CrossFit gyms. Once set up, it runs every day in the cloud so you never have to worry about grabbing a spot.
 
-## What does this do?
+> **Is your gym on WODBuster?** Check your gym's booking page URL. If it contains `wodbuster.com`, you're good to go.
 
-- ✨ Automatically books your workout sessions on WODBuster
-- 🔄 Runs daily in the cloud (using GitHub Actions)
-- 🔒 Handles login and verification automatically
-- ⏰ Books sessions at your preferred times
-- 🆓 Completely free to use
+---
 
-## Before You Start
+## What you need before starting
 
-1. **Check Your Gym**: Make sure your gym uses WODBuster as their booking platform. You can verify this by checking if your gym's booking URL contains `wodbuster.com`.
+- A GitHub account (free) — [sign up here](https://github.com/join) if you don't have one
+- Your WODBuster login email and password
+- A 2Captcha API key (costs less than $1/month) — [see step 4 below](#4-get-a-2captcha-api-key)
 
-2. **Terms of Service**: Please ensure you have permission from your gym to automate bookings through their WODBuster platform.
+---
 
-## Quick Start Guide (No Coding Required!)
+## Setup (one time only)
 
-1. **Fork this repository**
+### 1. Fork this repository
 
-   - Click the "Fork" button at the top right of this page
-   - This creates your own copy of the tool
+Click the **Fork** button at the top right of this page. This creates your own private copy of the tool under your GitHub account.
 
-2. **Set up your secrets**
+### 2. Add your secrets
 
-   - Go to your forked repository's Settings
-   - Click on "Secrets and variables" → "Actions"
-   - Add these required secrets by clicking "New repository secret":
+Secrets are for sensitive information like your password. GitHub keeps them encrypted and never shows them in logs.
 
-     ```
-     # Authentication
-     EMAIL=your-email@example.com
-     PASSWORD=your-password
+1. In your forked repository, click **Settings**
+2. In the left sidebar, click **Secrets and variables → Actions**
+3. Make sure you're on the **Secrets** tab
+4. Click **New repository secret** and add each of the following:
 
-     # 2Captcha API Key
-     TWO_CAPTCHA_API_KEY=your-2captcha-api-key
+| Name | Value |
+|------|-------|
+| `EMAIL` | Your WODBuster login email |
+| `PASSWORD` | Your WODBuster password |
+| `TWO_CAPTCHA_API_KEY` | Your 2Captcha API key (see step 4) |
 
-     # Target Website
-     BASE_URL=https://your-gym-website.com
-     ```
+### 3. Set your weekly schedule
 
-3. **Set your workout schedule**
+Your schedule uses **Variables** — unlike secrets, you can see and edit them at any time without deleting and recreating them.
 
-   - Still in the repository secrets, add your preferred times for each day:
-     ```
-     # Schedule (use 24-hour format)
-     MONDAY=17:00
-     TUESDAY=18:30
-     WEDNESDAY=09:00
-     THURSDAY=19:30
-     FRIDAY=20:15
-     SATURDAY=14:30
-     SUNDAY=14:30
-     ```
-   - For days you don't want to book, either:
-     - Don't add the day's secret at all, or
-     - Set it to an empty value
-   - Use 24-hour format (e.g., '14:30' for 2:30 PM)
+1. Still in **Settings → Secrets and variables → Actions**
+2. Click the **Variables** tab
+3. Click **New repository variable** and add a variable for each day you want to book
 
-   **Multiple classes at the same time?** If your gym offers more than one class at the same start time (e.g. CrossFit and Endurance both at 18:00), add the class name after a `|`:
-     ```
-     MONDAY=18:00|CrossFit
-     TUESDAY=18:00|Endurance
-     ```
-   The name is matched case-insensitively. If no match is found it falls back to the first available slot at that time.
+| Name | Value example | Meaning |
+|------|--------------|---------|
+| `MONDAY` | `18:00` | Book the 6 PM class every Monday |
+| `TUESDAY` | `18:00` | Book the 6 PM class every Tuesday |
+| `WEDNESDAY` | `09:00` | Book the 9 AM class every Wednesday |
+| `THURSDAY` | `18:00` | |
+| `FRIDAY` | `18:00` | |
+| `SATURDAY` | `10:00` | |
+| `SUNDAY` | `10:00` | |
 
-4. **Optional: Configure booking window**
+- Use 24-hour format (`18:00` not `6:00 PM`)
+- Only add variables for days you actually want to book — skip the rest
 
-   ```
-   # How many days in advance you can book (default: 7)
-   AVAILABLE_DAYS=7
-   ```
+**Two classes at the same time?** If your gym offers multiple classes at the same start time (e.g. CrossFit and Endurance both at 18:00), add the class name after a `|`:
 
-   **Gym opens the whole week at once?** If your gym releases all reservations on a single day (e.g. every Sunday), you don't need to run the script daily. Just trigger it manually from the **Actions** tab once your gym opens slots:
-   1. Go to **Actions → Daily Reservation → Run workflow**
-   2. Set *Days to book ahead* to however many days you want (e.g. `7`)
-   3. Click **Run workflow**
+```
+MONDAY=18:00|CrossFit
+TUESDAY=18:00|Endurance
+```
 
-   This books all the days you've configured in one shot.
+**Optional — how many days ahead to book:**
 
-5. **Get a 2Captcha API Key**
+| Name | Value | Meaning |
+|------|-------|---------|
+| `AVAILABLE_DAYS` | `7` | Book up to 7 days in advance (default if not set) |
 
-   - Go to [2captcha.com](https://2captcha.com)
-   - Register an account
-   - Add funds (minimum $3)
-   - Copy your API key from your account dashboard
+### 4. Get a 2Captcha API key
 
-6. **Enable GitHub Actions**
-   - Go to the "Actions" tab in your repository
-   - Click "I understand my workflows, go ahead and enable them"
+The tool needs this to handle the login security check automatically.
 
-That's it! The tool will now automatically try to book your preferred sessions every day at 22:30 (winter) or 21:30 (summer) Spain time.
+1. Go to [2captcha.com](https://2captcha.com) and create a free account
+2. Add a small amount of credit (minimum ~$3, lasts months at ~$0.001 per run)
+3. Copy your API key from the dashboard and add it as the `TWO_CAPTCHA_API_KEY` secret
 
-## Checking if it's Working
+### 5. Enable GitHub Actions
 
-1. Go to the "Actions" tab in your repository
-2. Look for the latest "Daily Reservation" workflow run
-3. Click on it to see the details and logs
-4. A green checkmark means it ran successfully
+1. Click the **Actions** tab in your forked repository
+2. If prompted, click **I understand my workflows, go ahead and enable them**
+
+That's it! The tool will now run automatically every evening around 22:30 Spain time.
+
+---
+
+## Checking if it worked
+
+1. Click the **Actions** tab in your repository
+2. Click the latest **AutoWOD** run
+3. You'll see a summary card showing exactly what happened for each day — no need to read through logs
+
+A green checkmark means the run completed. Check the summary card to see which sessions were booked.
+
+---
+
+## Changing your schedule
+
+Just go to **Settings → Secrets and variables → Actions → Variables tab**, click the variable you want to change (e.g. `MONDAY`), and update the value. The next run will pick it up automatically.
+
+---
+
+## My gym opens all reservations on one day
+
+Some gyms release the full week's schedule at once (e.g. every Sunday). Instead of running daily, you can trigger the tool manually:
+
+1. Go to **Actions → Daily Reservation**
+2. Click **Run workflow** (top right)
+3. In the *Days to book ahead* field, enter the number of days you want to cover (e.g. `7`)
+4. Click **Run workflow**
+
+This books everything in one go.
+
+---
 
 ## Troubleshooting
 
-### Common Issues
+**The run shows a red ✗**
+- Open the run and check the summary card or the step logs for the error message
+- Most common cause: a secret is missing or has a typo — double-check `EMAIL` and `PASSWORD`
 
-1. **Workflow not running?**
+**All days show "Skipped" in the summary**
+- You haven't added any day variables yet — go to the Variables tab and add at least one (e.g. `MONDAY=18:00`)
 
-   - Make sure you've enabled GitHub Actions
-   - Check if all required secrets are properly set
+**"Could not find Chrome" error**
+- Make sure your fork is up to date with the latest version of this repository
+- Do not remove or modify the *Install Chrome for Puppeteer* step in the workflow file
 
-2. **Login fails?**
+**Wrong class booked when multiple classes share a time**
+- Add the class name to your variable: `MONDAY=18:00|CrossFit`
+- The name match is not case-sensitive
 
-   - Double-check your EMAIL and PASSWORD secrets
-   - Make sure your BASE_URL is correct
+**Captcha errors**
+- Check that your `TWO_CAPTCHA_API_KEY` secret is correct
+- Make sure your 2Captcha account has credit remaining
 
-3. **Captcha issues?**
+---
 
-   - Ensure your TWO_CAPTCHA_API_KEY is correct
-   - Check if you have sufficient balance on 2captcha.com
+## Privacy & cost
 
-4. **Wrong booking times?**
-   - Make sure you're using 24-hour format (e.g., "17:00" not "5:00 PM")
-   - Check if the day's variable is set correctly (e.g., "MONDAY=17:00")
+- Your email, password, and API key are stored as encrypted GitHub secrets — only your workflow can read them
+- GitHub Actions is free for public repositories
+- 2Captcha costs roughly $0.001 per run — less than $1/month for daily bookings
 
-5. **Could not find Chrome error?**
-   - Make sure you are using `puppeteer` (not `puppeteer-core`) in your `package.json`
-   - The workflow installs Chrome automatically — do not remove the *Install Chrome for Puppeteer* step
-   - If you forked this repo a long time ago, update your workflow file from the latest version of this repo
-
-6. **Script runs but skips all days?**
-   - Check that your day secrets are set and not empty (e.g. `MONDAY=18:00`)
-   - The script now logs a warning at startup if no days are configured
-
-### Need Help?
-
-If you're having problems:
-
-1. Check the "Issues" tab to see if others had the same problem
-2. Create a new issue describing your problem
-3. Include the workflow run logs (without any personal information)
-
-## Cost Considerations
-
-- GitHub Actions: Free for public repositories
-- 2Captcha: Approximately $0.001 per booking attempt
-- Estimated monthly cost: Less than $1 for daily bookings
-
-## Safety & Privacy
-
-- ✅ Your credentials are securely stored as GitHub secrets
-- ✅ No one can see your email, password, or API keys
-- ✅ The tool only accesses your gym's booking system
-- ❌ Never share your secrets or API keys with anyone
-
-## License
-
-This project is licensed under the ISC License - see the LICENSE file for details.
+---
 
 ## Disclaimer
 
-This tool is specifically designed for WODBuster-powered gyms and is provided for educational purposes only. Please ensure you:
+This tool is designed for WODBuster-powered gyms. Please make sure you have permission from your gym to automate bookings, and use it responsibly in line with their booking policies.
 
-1. Have confirmed your gym uses the WODBuster platform
-2. Have permission to automate interactions with your gym's WODBuster website
-3. Comply with both WODBuster's and your gym's terms of service
-4. Use this tool responsibly and in accordance with your gym's booking policies
+## License
+
+ISC — see the [LICENSE](LICENSE) file for details.

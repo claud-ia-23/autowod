@@ -1,3 +1,4 @@
+import { appendFileSync } from 'fs';
 import { Page, ElementHandle } from 'puppeteer';
 import {
   ButtonText,
@@ -175,10 +176,64 @@ export async function makeReservation(
   return result;
 }
 
+function writeJobSummary(
+  dayResults: Array<{ weekDay: string; result: ReservationResult }>,
+  counts: {
+    booked: number;
+    waitlisted: number;
+    alreadyBooked: number;
+    skipped: number;
+    other: number;
+  }
+) {
+  const summaryFile = process.env.GITHUB_STEP_SUMMARY;
+  if (!summaryFile) return;
+
+  const statusLabel = (result: ReservationResult): string => {
+    if (!result.time) return '⏭️ Skipped';
+    if (result.state === 'Entrenar' && result.success) return '✅ Booked';
+    if (result.state === 'Avisar' && result.success) return '⏳ Waitlisted';
+    if (result.state === 'Borrar') return 'ℹ️ Already booked';
+    if (result.state === 'Finalizada') return '❌ Class already finished';
+    if (result.state === 'Cambiar') return '⚠️ Booked at a different time';
+    return '🔍 Slot not found';
+  };
+
+  const rows = dayResults.map(({ weekDay, result }) => {
+    const day = weekDay.charAt(0).toUpperCase() + weekDay.slice(1);
+    const time = result.time ?? '—';
+    return `| ${day} | ${time} | ${statusLabel(result)} |`;
+  });
+
+  const totals = [
+    counts.booked > 0 ? `**${counts.booked} booked**` : null,
+    counts.waitlisted > 0 ? `${counts.waitlisted} waitlisted` : null,
+    counts.alreadyBooked > 0 ? `${counts.alreadyBooked} already booked` : null,
+    counts.skipped > 0 ? `${counts.skipped} skipped` : null,
+    counts.other > 0 ? `${counts.other} other` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
+  const lines = [
+    '## 🏋️ AutoWOD Booking Results',
+    '',
+    '| Day | Time | Status |',
+    '|-----|------|--------|',
+    ...rows,
+    '',
+    totals,
+    '',
+  ];
+
+  appendFileSync(summaryFile, lines.join('\n'));
+}
+
 export async function processReservations(
   page: Page,
   preferences: ReservationPreferences
 ): Promise<void> {
+  const dayResults: Array<{ weekDay: string; result: ReservationResult }> = [];
   let booked = 0;
   let waitlisted = 0;
   let alreadyBooked = 0;
@@ -187,12 +242,13 @@ export async function processReservations(
 
   for (let i = 0; i < availableDays; i++) {
     const weekDay = await getWeekDayFromUrl(page);
-    const time = preferences[weekDay as WeekDay];
+    const preference = preferences[weekDay as WeekDay];
 
-    const result = await makeReservation(page, time);
+    const result = await makeReservation(page, preference);
+    dayResults.push({ weekDay, result });
     console.log(result.message);
 
-    if (!time) {
+    if (!preference) {
       skipped++;
     } else if (result.state === 'Entrenar' && result.success) {
       booked++;
@@ -211,4 +267,6 @@ export async function processReservations(
   console.log(
     `📊 Summary -> booked: ${booked}, waitlist: ${waitlisted}, already booked: ${alreadyBooked}, skipped (no time): ${skipped}, other: ${other}`
   );
+
+  writeJobSummary(dayResults, { booked, waitlisted, alreadyBooked, skipped, other });
 }

@@ -14,12 +14,11 @@ function validateConfig() {
   const missing: string[] = [];
   if (!email) missing.push('EMAIL');
   if (!password) missing.push('PASSWORD');
-  if (!baseUrl) missing.push('BASE_URL');
 
   if (missing.length > 0) {
     console.error(
-      `❌ Missing required environment variables: ${missing.join(', ')}\n` +
-        `Make sure these are set as GitHub repository secrets (Settings → Secrets and variables → Actions).`
+      `❌ Missing required secrets: ${missing.join(', ')}\n` +
+        `Go to your repository Settings → Secrets and variables → Actions and add them.`
     );
     process.exit(1);
   }
@@ -27,8 +26,8 @@ function validateConfig() {
   const hasAnyDay = Object.values(reservationsPreferences).some(v => v);
   if (!hasAnyDay) {
     console.warn(
-      `⚠️ No days configured — set at least one of MONDAY…SUNDAY to a time (e.g. MONDAY=18:00). ` +
-        `The script will run but skip all days.`
+      `⚠️ No days configured — set at least one of MONDAY…SUNDAY in your repository variables ` +
+        `(Settings → Secrets and variables → Actions → Variables tab).`
     );
   }
 }
