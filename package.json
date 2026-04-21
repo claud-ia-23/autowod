@@ -1,6 +1,6 @@
 {
   "name": "autowod",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "An automated reservation system for workout sessions using Puppeteer and 2Captcha",
   "main": "index.js",
   "scripts": {
