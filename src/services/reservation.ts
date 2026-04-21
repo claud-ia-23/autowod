@@ -25,6 +25,21 @@ export async function goToReservations(page: Page): Promise<void> {
   const currentDomain = new URL(currentUrl).origin;
   await page.goto(`${currentDomain}/athlete/reservas.aspx?t=${todayInSeconds}`);
   await page.waitForNetworkIdle({ timeout: 5000 }).catch(() => {});
+  // Click the active/current day to load its classes
+  await clickCurrentDay(page);
+}
+
+async function clickCurrentDay(page: Page): Promise<void> {
+  // Try clicking the .current day button, or the first .dia button
+  const clicked = await page.evaluate(() => {
+    const current = document.querySelector('a.dia.current') as HTMLElement;
+    if (current) { current.click(); return 'current'; }
+    const first = document.querySelector('a.dia') as HTMLElement;
+    if (first) { first.click(); return 'first'; }
+    return null;
+  });
+  console.log(`🔎 DEBUG clicked day: ${clicked}`);
+  await page.waitForNetworkIdle({ timeout: 5000 }).catch(() => {});
 }
 
 export async function getReservationState(
@@ -46,9 +61,16 @@ export function getReservationKey(time: string): string {
 }
 
 export async function goToNextDay(page: Page): Promise<void> {
-  await page.waitForSelector('a.next');
-  await page.click('a.next');
-  await page.waitForNetworkIdle({ timeout: 5000 }).catch(() => {});
+  // Navigate to next day by incrementing the timestamp in the URL
+  const url = page.url();
+  const match = url.match(/t=(\d+)/);
+  if (match) {
+    const nextTs = Number(match[1]) + 86400;
+    const nextUrl = url.replace(/t=\d+/, `t=${nextTs}`);
+    await page.goto(nextUrl);
+    await page.waitForNetworkIdle({ timeout: 5000 }).catch(() => {});
+  }
+  await clickCurrentDay(page);
 }
 
 export async function getDateLabel(date: Date): Promise<string> {
